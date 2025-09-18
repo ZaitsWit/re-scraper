@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  vault:
+    image: hashicorp/vault:1.16
+    container_name: vault
+    cap_add: [ "IPC_LOCK" ]
+    command: server -config=/vault/config/vault.hcl
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8200
+    ports: [ "8200:8200" ]
+    volumes:
+      - ./config:/vault/config
+      - ./data:/vault/file
+      - ./logs:/vault/logs
+    restart: unless-stopped

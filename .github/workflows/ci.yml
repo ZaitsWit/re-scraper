@@ -1,0 +1,51 @@
+name: ci
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - name: Install hvac
+        run: pip install hvac==2.3.0
+
+      - name: Fetch secrets from Vault
+        id: vault
+        env:
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
+        run: |
+          python - <<'PY'
+          import os, hvac, sys
+          c = hvac.Client(url=os.environ["VAULT_ADDR"])
+          tok = c.auth_approle(os.environ["VAULT_ROLE_ID"], os.environ["VAULT_SECRET_ID"])
+          c.token = tok["auth"]["client_token"]
+          def read(p): return c.secrets.kv.v2.read_secret_version(path=f"app/{p}", mount_point="kv")["data"]["data"]
+          db = read("db"); tg = read("telegram")
+          print(f"db_url={db['url']}")
+          print(f"tg_token={tg['token']}")
+          PY
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build image
+        run: |
+          docker build -t ${{ secrets.IMAGE_NAME }}:${{ github.sha }} .
+          docker tag  ${{ secrets.IMAGE_NAME }}:${{ github.sha }} ${{ secrets.IMAGE_NAME }}:latest
+
+      - name: Push image
+        run: |
+          docker push ${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ secrets.IMAGE_NAME }}:latest

@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy>=2.0
+asyncpg
+pydantic-settings
+alembic
+httpx
+selectolax
+APScheduler
+orjson
+loguru
+tenacity
+python-dotenv
+hvac>=1.2.0
